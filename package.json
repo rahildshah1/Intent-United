@@ -1,0 +1,9 @@
+{
+  "name": "intent-united",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Intent United nonprofit site — static HTML/CSS/JS",
+  "scripts": {
+    "dev": "node devserver.js"
+  }
+}

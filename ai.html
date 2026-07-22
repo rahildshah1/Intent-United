@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intent United | AI Agent</title>
+  <script>document.documentElement.classList.add('js');</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500..700;1,9..144,500..600&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css" />
+
+  <style>
+    /* keep the embedded Botpress widget filling its clay frame */
+    #bp-web-widget-container {
+      position: absolute !important;
+      inset: 0 !important;
+      width: 100% !important;
+      height: 100% !important;
+      max-width: 100% !important;
+      max-height: 100% !important;
+      margin: 0 !important;
+      border-radius: 24px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a href="index.html" class="brand">
+        <img src="https://codehs.com/uploads/8e9d112bb9b3aef1c6da95f89f2f2823" alt="Intent United Logo" class="logo-image" />
+      </a>
+      <nav>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="programs.html">Programs</a></li>
+          <li><a href="impact.html">Impact</a></li>
+          <li><a href="partners.html">Partners</a></li>
+          <li><a href="officers.html">Officers</a></li>
+          <li><a href="ai.html" class="active">AI Agent</a></li>
+          <li><a href="contact.html" class="btn btn-primary">Support</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="container hero-grid">
+        <div>
+          <div class="tag">Always-On Mentorship</div>
+          <h1>Your <span class="accent">personalized</span> learning companion</h1>
+          <p>
+            The Intent United AI Agent sits alongside children as they learn. It doesn't just give answers — it asks guiding questions, simplifies complex topics, and translates instantly between English and 6 regional languages.
+          </p>
+          <div class="hero-stats">
+            <div class="stat-pill soft-hover">
+              <strong>24/7</strong>
+              <span>availability</span>
+            </div>
+            <div class="stat-pill soft-hover">
+              <strong data-count="6">6</strong>
+              <span>fluent languages</span>
+            </div>
+            <div class="stat-pill soft-hover">
+              <strong data-count="100" data-suffix="%">100%</strong>
+              <span>curriculum aligned</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="tutor-container"></div>
+      </div>
+    </section>
+
+    <section class="page-section">
+      <div class="container">
+        <div class="section-header reveal">
+          <div>
+            <div class="tag">Beyond a standard chatbot</div>
+            <h2>Intelligence built for education</h2>
+          </div>
+          <p>
+            We engineered this AI specifically for low-resource environments and young learners, ensuring it acts as a safe guide rather than a shortcut.
+          </p>
+        </div>
+        <div class="grid-3">
+          <article class="card soft-hover reveal">
+            <div class="icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg>
+            </div>
+            <h3>Paced for the student</h3>
+            <p>The AI evaluates comprehension in real-time, offering visual metaphors and hints instead of just handing over the answer.</p>
+          </article>
+          <article class="card soft-hover reveal">
+            <div class="icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><path d="M12 17v4"/><path d="M9 21h6"/></svg>
+            </div>
+            <h3>Voice enabled</h3>
+            <p>Children can speak directly to the interface. The AI listens, gently corrects pronunciation, and reads stories aloud.</p>
+          </article>
+          <article class="card soft-hover reveal">
+            <div class="icon-wrap">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6l7-3Z"/><path d="m9 12 2 2 4-4"/></svg>
+            </div>
+            <h3>Strict guardrails</h3>
+            <p>Built with heavy content moderation. The AI only discusses approved curriculum topics and redirects inappropriate questions.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-grid">
+      <div>
+        <strong>Intent United</strong>
+        <p>AI for children with dignity, care, and local partnership.</p>
+      </div>
+      <div class="footer-links">
+        <a href="about.html">About</a>
+        <a href="programs.html">Programs</a>
+        <a href="impact.html">Impact</a>
+        <a href="partners.html">Partners</a>
+        <a href="officers.html">Officers</a>
+        <a href="contact.html">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+  <script src="https://cdn.botpress.cloud/webchat/v3.6/inject.js"></script>
+  <script src="https://files.bpcontent.cloud/2026/04/10/01/20260410011627-J0ATVVHU.js" defer></script>
+
+  <script>
+    window.addEventListener('load', () => {
+      const checkWidget = setInterval(() => {
+        const bpWidget = document.getElementById('bp-web-widget-container');
+        const tutorContainer = document.getElementById('tutor-container');
+
+        if (bpWidget && tutorContainer) {
+          // Move the Botpress widget into the designated clay frame
+          tutorContainer.appendChild(bpWidget);
+
+          // Force it to open immediately
+          if (window.botpressWebChat) {
+            window.botpressWebChat.sendEvent({ type: 'show' });
+          }
+
+          clearInterval(checkWidget);
+        }
+      }, 100);
+    });
+  </script>
+</body>
+</html>
