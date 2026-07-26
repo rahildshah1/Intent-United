@@ -101,7 +101,27 @@
     }
   }
 
-  /* ---- 3. Gentle 3D tilt on the hero visual card ------------------- */
+  /* ---- 3. Scroll-progress bar -------------------------------------- */
+  if (!reduceMotion) {
+    var bar = document.createElement("div");
+    bar.className = "scroll-progress";
+    document.body.appendChild(bar);
+
+    var barRaf = null;
+    function updateBar() {
+      barRaf = null;
+      var doc = document.documentElement;
+      var scrollable = doc.scrollHeight - doc.clientHeight;
+      var p = scrollable > 0 ? doc.scrollTop / scrollable : 0;
+      bar.style.transform = "scaleX(" + Math.min(Math.max(p, 0), 1) + ")";
+    }
+    window.addEventListener("scroll", function () {
+      if (barRaf === null) barRaf = requestAnimationFrame(updateBar);
+    }, { passive: true });
+    updateBar();
+  }
+
+  /* ---- 4. Gentle 3D tilt on the hero visual card ------------------- */
   var tiltEl = document.querySelector(".visual-card");
   var finePointer = window.matchMedia("(pointer: fine)").matches;
 
@@ -141,5 +161,161 @@
 
     tiltEl.addEventListener("mousemove", onMove);
     tiltEl.addEventListener("mouseleave", onLeave);
+  }
+
+  /* ---- 5. Realistic background water ripple ------------------------ */
+  // A classic height-field water simulation running on a small offscreen
+  // buffer, upscaled by the browser into a smooth surface. The pointer
+  // pushes the "water", the disturbance propagates and damps over time, and
+  // the height gradient is painted as light/shadow so it looks like ripples
+  // travelling across the page's warm background.
+  if (finePointer && !reduceMotion) {
+    var canvas = document.createElement("canvas");
+    canvas.className = "ripple-canvas";
+    canvas.setAttribute("aria-hidden", "true");
+    document.body.appendChild(canvas);
+    var ctx = canvas.getContext("2d");
+
+    var cols, rows, prev, cur, image, data, scaleX, scaleY;
+    var DAMP = 0.965;        // energy loss per frame (0.9–0.99)
+    var TARGET = 220;        // ~buffer width in px; height scales to match
+
+    function build() {
+      var vw = window.innerWidth, vh = window.innerHeight;
+      cols = Math.max(80, Math.round(TARGET));
+      rows = Math.max(60, Math.round(TARGET * (vh / vw)));
+      canvas.width = cols;
+      canvas.height = rows;
+      scaleX = cols / vw;    // viewport px -> buffer cell
+      scaleY = rows / vh;
+      prev = new Float32Array(cols * rows);
+      cur = new Float32Array(cols * rows);
+      image = ctx.createImageData(cols, rows);
+      data = image.data;
+      // start fully transparent; we only tint where the surface bends
+      for (var i = 3; i < data.length; i += 4) data[i] = 0;
+      lastScrollY = window.pageYOffset || 0;
+      scrollAcc = 0;
+    }
+    var lastScrollY = 0, scrollAcc = 0;
+    build();
+
+    // Slide the whole surface with the page so ripples stay anchored to the
+    // content beneath them instead of hovering in a fixed viewport spot.
+    function shiftRows(arr, n) {           // n>0 = move pattern up
+      if (n > 0) {
+        arr.copyWithin(0, n * cols);
+        arr.fill(0, (rows - n) * cols);
+      } else {
+        n = -n;
+        arr.copyWithin(n * cols, 0, (rows - n) * cols);
+        arr.fill(0, 0, n * cols);
+      }
+    }
+
+    function syncScroll() {
+      var y = window.pageYOffset || 0;
+      // buffer cells the page moved since last sync (fractional part kept)
+      scrollAcc += (y - lastScrollY) * scaleY;
+      lastScrollY = y;
+      var n = scrollAcc | 0;               // whole rows to shift now
+      if (n === 0) return false;
+      if (n >= rows || n <= -rows) {       // scrolled past a full screen
+        prev.fill(0); cur.fill(0);
+      } else {
+        // scroll down (n>0) => content rises => pattern moves up
+        shiftRows(prev, n);
+        shiftRows(cur, n);
+      }
+      scrollAcc -= n;
+      return true;
+    }
+
+    var resizeT = null;
+    window.addEventListener("resize", function () {
+      if (resizeT) clearTimeout(resizeT);
+      resizeT = setTimeout(build, 180);
+    });
+
+    // Drop energy into a small disc around a buffer cell.
+    function disturb(cx, cy, power) {
+      for (var y = -2; y <= 2; y++) {
+        for (var x = -2; x <= 2; x++) {
+          var gx = cx + x, gy = cy + y;
+          if (gx < 1 || gy < 1 || gx >= cols - 1 || gy >= rows - 1) continue;
+          if (x * x + y * y > 5) continue;            // round the splash
+          prev[gy * cols + gx] += power;
+        }
+      }
+    }
+
+    var lastX = 0, lastY = 0, primed = false;
+    window.addEventListener("mousemove", function (e) {
+      var cx = Math.round(e.clientX * scaleX);
+      var cy = Math.round(e.clientY * scaleY);
+      if (!primed) { lastX = cx; lastY = cy; primed = true; }
+      var dx = cx - lastX, dy = cy - lastY;
+      var speed = Math.min(Math.sqrt(dx * dx + dy * dy), 12);
+      // faster movement = stronger wake, so a still cursor barely stirs it
+      disturb(cx, cy, 0.28 + speed * 0.22);
+      lastX = cx; lastY = cy;
+    }, { passive: true });
+
+    // Water surface colours (specular highlight + refraction shadow).
+    var hiR = 255, hiG = 251, hiB = 240;   // warm cream sheen
+    var loR = 12,  loG = 63,  loB = 60;    // deep teal shadow
+
+    // Advance the wave field. Kept at ~30fps so the water stays calm and
+    // gentle; after the swap the latest field lives in `prev`.
+    function simulate() {
+      var w = cols;
+      for (var y = 1; y < rows - 1; y++) {
+        for (var x = 1; x < w - 1; x++) {
+          var i = y * w + x;
+          // wave equation: average of 4 neighbours minus the old height
+          var val =
+            ((prev[i - 1] + prev[i + 1] + prev[i - w] + prev[i + w]) * 0.5) -
+            cur[i];
+          cur[i] = val * DAMP;
+        }
+      }
+      var t = prev; prev = cur; cur = t;   // prev = newest field
+    }
+
+    // Paint the surface from the newest field (`prev`) via its slope.
+    function render() {
+      var w = cols;
+      for (var y = 1; y < rows - 1; y++) {
+        for (var x = 1; x < w - 1; x++) {
+          var i = y * w + x;
+          var slope = prev[i - 1] - prev[i + 1];
+          var p = i * 4;
+          if (slope >= 0) {
+            var a = slope * 26; if (a > 150) a = 150;
+            data[p] = hiR; data[p + 1] = hiG; data[p + 2] = hiB;
+            data[p + 3] = a;
+          } else {
+            var b = -slope * 22; if (b > 130) b = 130;
+            data[p] = loR; data[p + 1] = loG; data[p + 2] = loB;
+            data[p + 3] = b;
+          }
+        }
+      }
+      ctx.putImageData(image, 0, 0);
+    }
+
+    // Drive at the display's full rate: scroll-pinning and repaint happen
+    // every frame (so scrolling never lags), while the physics only steps
+    // on alternate frames to keep the ripples gentle. Idle frames with no
+    // motion do no work.
+    var frameNo = 0;
+    function frame() {
+      requestAnimationFrame(frame);
+      var moved = syncScroll();
+      var stepped = false;
+      if ((frameNo++ & 1) === 0) { simulate(); stepped = true; }
+      if (stepped || moved) render();
+    }
+    requestAnimationFrame(frame);
   }
 })();

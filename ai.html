@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500..700;1,9..144,500..600&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script>IntentAuth.requireAuth();</script>
   <link rel="stylesheet" href="style.css" />
 
   <style>
@@ -23,6 +27,39 @@
       border-radius: 24px;
       overflow: hidden;
     }
+
+    #tutor-container { position: relative; }
+
+    /* Small "syncing / saved" badge floating over the tutor frame. */
+    .sync-status {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 20;
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      padding: 5px 11px;
+      border-radius: 999px;
+      font: 600 12px/1 "Nunito", sans-serif;
+      color: #4b5563;
+      background: rgba(255, 255, 255, 0.9);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+      backdrop-filter: blur(6px);
+      transition: opacity 0.4s ease;
+    }
+    .sync-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #f59e0b;
+    }
+    /* Saving: amber, pulsing. */
+    .sync-status.is-saving .sync-dot { animation: sync-pulse 1s ease-in-out infinite; }
+    /* Saved: green, steady, then the whole badge fades out. */
+    .sync-status.is-saved .sync-dot { background: #10b981; animation: none; }
+    .sync-status.is-hidden { opacity: 0; }
+    @keyframes sync-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
   </style>
 </head>
 <body>
@@ -71,7 +108,11 @@
           </div>
         </div>
 
-        <div id="tutor-container"></div>
+        <div id="tutor-container">
+          <div id="sync-status" class="sync-status" aria-live="polite" hidden>
+            <span class="sync-dot"></span><span class="sync-label">Syncing…</span>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -131,28 +172,152 @@
   </footer>
 
   <script src="main.js"></script>
-  <script src="https://cdn.botpress.cloud/webchat/v3.6/inject.js"></script>
-  <script src="https://files.bpcontent.cloud/2026/04/10/01/20260410011627-J0ATVVHU.js" defer></script>
 
+  <!--
+    AI tutor loader with cross-device continuity.
+
+    Botpress keeps its whole session (conversation id + user token) in this
+    browser's localStorage under "bp*" keys. To make progress follow the child's
+    ACCOUNT rather than the browser, we:
+      1. RESTORE the account's saved session into localStorage BEFORE Botpress
+         boots (so it resumes the same conversation on a new device), then
+      2. inject the Botpress scripts, then
+      3. periodically SAVE the current session back to Supabase.
+
+    Note: this leans on Botpress restoring a conversation from its localStorage
+    keys (undocumented but standard widget behavior). Verify once in a browser:
+    chat on device A, log in on device B, confirm the thread reappears.
+  -->
   <script>
-    window.addEventListener('load', () => {
-      const checkWidget = setInterval(() => {
-        const bpWidget = document.getElementById('bp-web-widget-container');
-        const tutorContainer = document.getElementById('tutor-container');
+    (function () {
+      "use strict";
 
-        if (bpWidget && tutorContainer) {
-          // Move the Botpress widget into the designated clay frame
-          tutorContainer.appendChild(bpWidget);
+      var BP_INJECT = "https://cdn.botpress.cloud/webchat/v3.6/inject.js";
+      var BP_CONFIG = "https://files.bpcontent.cloud/2026/04/10/01/20260410011627-J0ATVVHU.js";
+      var SAVE_INTERVAL_MS = 15000;
 
-          // Force it to open immediately
-          if (window.botpressWebChat) {
-            window.botpressWebChat.sendEvent({ type: 'show' });
-          }
-
-          clearInterval(checkWidget);
+      // ---- syncing indicator ------------------------------------------
+      var statusEl, labelEl, hideTimer;
+      function setStatus(state, text) {
+        if (!statusEl) statusEl = document.getElementById("sync-status");
+        if (!statusEl) return;
+        if (!labelEl) labelEl = statusEl.querySelector(".sync-label");
+        if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+        statusEl.hidden = false;
+        statusEl.classList.remove("is-saving", "is-saved", "is-hidden");
+        statusEl.classList.add(state === "saved" ? "is-saved" : "is-saving");
+        if (labelEl) labelEl.textContent = text;
+        if (state === "saved") {
+          // Fade the badge out shortly after a successful save.
+          hideTimer = setTimeout(function () {
+            statusEl.classList.add("is-hidden");
+          }, 1800);
         }
-      }, 100);
-    });
+      }
+
+      // Collect every "bp*" localStorage key into a plain object.
+      function snapshotBpState() {
+        var state = {};
+        for (var i = 0; i < localStorage.length; i++) {
+          var key = localStorage.key(i);
+          if (key && key.indexOf("bp") === 0) state[key] = localStorage.getItem(key);
+        }
+        return state;
+      }
+
+      // Write a saved snapshot back into localStorage (must run before boot).
+      function restoreBpState(state) {
+        if (!state) return;
+        Object.keys(state).forEach(function (key) {
+          try { localStorage.setItem(key, state[key]); } catch (e) { /* ignore */ }
+        });
+      }
+
+      // Only save when something actually changed, to avoid needless writes.
+      var lastSaved = "";
+      // Stays false until this account's saved session has been read back
+      // successfully. Saving before that could overwrite good server-side
+      // progress with a blank local session.
+      var syncEnabled = false;
+      function saveIfChanged() {
+        if (!syncEnabled) return;
+        if (!window.IntentAuth || !IntentAuth.saveChatState) return;
+        var state = snapshotBpState();
+        var serialized = JSON.stringify(state);
+        if (serialized === lastSaved) return;
+        lastSaved = serialized;
+        setStatus("saving", "Syncing…");
+        IntentAuth.saveChatState(state).then(function () {
+          setStatus("saved", "Progress saved");
+        }).catch(function () {
+          setStatus("saved", "Saved locally"); // best-effort; local copy still works
+        });
+      }
+
+      // Load the two Botpress scripts in order (config depends on inject.js).
+      function loadBotpress() {
+        var inject = document.createElement("script");
+        inject.src = BP_INJECT;
+        inject.onload = function () {
+          var cfg = document.createElement("script");
+          cfg.src = BP_CONFIG;
+          document.body.appendChild(cfg);
+        };
+        document.body.appendChild(inject);
+      }
+
+      // Move the widget into the clay frame once it renders.
+      function mountWidget() {
+        var checkWidget = setInterval(function () {
+          var bpWidget = document.getElementById("bp-web-widget-container");
+          var tutorContainer = document.getElementById("tutor-container");
+          if (bpWidget && tutorContainer) {
+            tutorContainer.appendChild(bpWidget);
+            clearInterval(checkWidget);
+          }
+        }, 100);
+      }
+
+      async function start() {
+        // 1. Restore this account's saved session before Botpress boots.
+        //    This has to be a REPLACE, not a merge: whatever "bp*" keys this
+        //    browser is holding may belong to whoever used the device last, so
+        //    they are cleared first. Otherwise a child signing in on a shared
+        //    machine would boot the tutor on the PREVIOUS child's conversation
+        //    and then sync it up into their own account.
+        setStatus("saving", "Loading your progress…");
+        try {
+          if (!window.IntentAuth || !IntentAuth.getChatState) throw new Error("auth unavailable");
+          var saved = await IntentAuth.getChatState();
+          IntentAuth.clearBotpressState();
+          restoreBpState(saved);
+          lastSaved = JSON.stringify(snapshotBpState());
+          syncEnabled = true;
+          setStatus("saved", "Progress loaded");
+        } catch (e) {
+          // Couldn't read this account's session. Still wipe the browser's
+          // copy — it isn't provably ours — but leave syncing off so a fresh
+          // local session can't overwrite good server-side progress.
+          if (window.IntentAuth && IntentAuth.clearBotpressState) {
+            IntentAuth.clearBotpressState();
+          }
+          setStatus("saved", "Progress not synced");
+        }
+
+        // 2. Boot the widget, then mount it.
+        loadBotpress();
+        mountWidget();
+
+        // 3. Persist the session as it evolves.
+        setInterval(saveIfChanged, SAVE_INTERVAL_MS);
+        document.addEventListener("visibilitychange", function () {
+          if (document.hidden) saveIfChanged();
+        });
+        window.addEventListener("pagehide", saveIfChanged);
+      }
+
+      window.addEventListener("load", start);
+    })();
   </script>
 </body>
 </html>

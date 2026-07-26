@@ -8,6 +8,10 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500..700;1,9..144,500..600&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script>IntentAuth.requireAuth();</script>
   <link rel="stylesheet" href="style.css" />
 </head>
 <body>
@@ -35,7 +39,7 @@
     <section class="page-section page-hero">
       <div class="container">
         <div class="tag">Founders</div>
-        <h1>Meet the five people behind <span class="accent">Intent United</span></h1>
+        <h1>Meet the four people behind <span class="accent">Intent United</span></h1>
         <p>
           This page is set up so you can easily add pictures for each founder. Just replace each image file path with the real photo you want to use.
         </p>
@@ -77,15 +81,6 @@
           <h3>Emanuel Million</h3>
           <p>
             Add a short biography here about this founder's experience with technology, mentorship, or nonprofit strategy.
-          </p>
-        </article>
-
-        <article class="founder-card soft-hover reveal">
-          <img src="officer-5.jpg" alt="Officer 5 portrait" class="founder-image" />
-          <span class="founder-role">Head of Programs</span>
-          <h3>Elise Park</h3>
-          <p>
-            Add a short biography here about this founder's background, goals, and role in helping shape the nonprofit.
           </p>
         </article>
       </div>

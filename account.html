@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Intent United | Your Account</title>
+  <script>document.documentElement.classList.add('js');</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,500..700;1,9..144,500..600&family=Nunito:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script src="auth.js"></script>
+  <script>IntentAuth.requireAuth();</script>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header>
+    <div class="container nav">
+      <a href="index.html" class="brand">
+        <img src="https://codehs.com/uploads/8e9d112bb9b3aef1c6da95f89f2f2823" alt="Intent United Logo" class="logo-image" />
+      </a>
+      <nav>
+        <ul>
+          <li><a href="index.html">Home</a></li>
+          <li><a href="about.html">About</a></li>
+          <li><a href="programs.html">Programs</a></li>
+          <li><a href="impact.html">Impact</a></li>
+          <li><a href="partners.html">Partners</a></li>
+          <li><a href="officers.html">Officers</a></li>
+          <li><a href="ai.html">AI Agent</a></li>
+          <li><a href="contact.html" class="btn btn-primary">Support</a></li>
+        </ul>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="page-section">
+      <div class="container account-wrap">
+        <div class="section-header reveal">
+          <div>
+            <div class="tag">Your account</div>
+            <h2>Account settings</h2>
+          </div>
+          <p>Your details and the data Intent United keeps for you. You are in control of all of it.</p>
+        </div>
+
+        <article class="card account-card reveal">
+          <h3>Profile</h3>
+          <dl class="account-details">
+            <div><dt>Name</dt><dd id="acct-name">…</dd></div>
+            <div><dt>Email</dt><dd id="acct-email">…</dd></div>
+            <div><dt>Member since</dt><dd id="acct-created">…</dd></div>
+          </dl>
+        </article>
+
+        <article class="card account-card reveal">
+          <h3>Password</h3>
+          <p>
+            We'll email you a secure link to set a new password. The link works once
+            and expires shortly after it's sent.
+          </p>
+
+          <div class="auth-error" id="pw-error" role="alert" hidden></div>
+          <div class="auth-notice" id="pw-notice" role="status" hidden></div>
+
+          <button type="button" class="btn btn-secondary" id="pw-reset">Send me a reset link</button>
+        </article>
+
+        <article class="card danger-zone reveal">
+          <h3>Delete your account</h3>
+          <p>
+            This permanently erases your Intent United account. There is no undo and
+            nothing can be restored afterwards. Deleting removes:
+          </p>
+          <ul class="danger-list">
+            <li>your login and password</li>
+            <li>your profile — name and email address</li>
+            <li>your saved AI tutor conversation, including its stored session token</li>
+          </ul>
+
+          <div class="auth-error" id="delete-error" role="alert" hidden></div>
+
+          <button type="button" class="btn btn-danger" id="delete-open">Delete my account</button>
+
+          <form id="delete-confirm" class="delete-confirm" hidden>
+            <label class="field">
+              <span>Type <strong>DELETE</strong> to confirm</span>
+              <input type="text" id="delete-phrase" autocomplete="off" placeholder="DELETE" />
+            </label>
+            <div class="delete-actions">
+              <button type="submit" class="btn btn-danger" id="delete-submit" disabled>Permanently delete</button>
+              <button type="button" class="btn btn-secondary" id="delete-cancel">Cancel</button>
+            </div>
+          </form>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <footer>
+    <div class="container footer-grid">
+      <div>
+        <strong>Intent United</strong>
+        <p>AI for children with dignity, care, and local partnership.</p>
+      </div>
+      <div class="footer-links">
+        <a href="about.html">About</a>
+        <a href="programs.html">Programs</a>
+        <a href="impact.html">Impact</a>
+        <a href="partners.html">Partners</a>
+        <a href="officers.html">Officers</a>
+        <a href="contact.html">Support</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="main.js"></script>
+  <script>
+    (function () {
+      "use strict";
+
+      var CONFIRM_PHRASE = "DELETE";
+
+      var errorBox = document.getElementById("delete-error");
+      var openBtn = document.getElementById("delete-open");
+      var confirmForm = document.getElementById("delete-confirm");
+      var phraseInput = document.getElementById("delete-phrase");
+      var submitBtn = document.getElementById("delete-submit");
+      var cancelBtn = document.getElementById("delete-cancel");
+
+      function showError(msg) {
+        errorBox.textContent = msg;
+        errorBox.hidden = false;
+      }
+      function clearError() {
+        errorBox.hidden = true;
+        errorBox.textContent = "";
+      }
+
+      // ---- profile ------------------------------------------------------
+      var accountEmail = "";
+
+      function setText(id, value) {
+        document.getElementById(id).textContent = value || "—";
+      }
+
+      async function loadProfile() {
+        try {
+          var profile = await IntentAuth.getProfile();
+          if (!profile) return;
+          accountEmail = profile.email || "";
+          setText("acct-name", profile.name);
+          setText("acct-email", profile.email);
+          setText("acct-created", profile.created_at
+            ? new Date(profile.created_at).toLocaleDateString(undefined,
+                { year: "numeric", month: "long", day: "numeric" })
+            : "");
+        } catch (e) {
+          setText("acct-name", "");
+          setText("acct-email", "");
+          setText("acct-created", "");
+        }
+      }
+
+      // ---- password reset ----------------------------------------------
+      var pwBtn = document.getElementById("pw-reset");
+      var pwError = document.getElementById("pw-error");
+      var pwNotice = document.getElementById("pw-notice");
+
+      pwBtn.addEventListener("click", async function () {
+        pwError.hidden = true;
+        pwNotice.hidden = true;
+
+        if (!accountEmail) {
+          pwError.textContent = "We couldn't read your email address. Reload and try again.";
+          pwError.hidden = false;
+          return;
+        }
+
+        pwBtn.disabled = true;
+        pwBtn.textContent = "Sending…";
+
+        try {
+          await IntentAuth.sendPasswordReset(accountEmail);
+          pwNotice.textContent = "Reset link sent to " + accountEmail + ". Check your inbox.";
+          pwNotice.hidden = false;
+          // Sending is rate-limited server-side; hold the button briefly so a
+          // second click doesn't just earn an error.
+          pwBtn.textContent = "Link sent";
+          window.setTimeout(function () {
+            pwBtn.disabled = false;
+            pwBtn.textContent = "Send another link";
+          }, 60000);
+        } catch (err) {
+          pwError.textContent = err && err.message
+            ? err.message
+            : "We couldn't send the reset link. Please try again.";
+          pwError.hidden = false;
+          pwBtn.disabled = false;
+          pwBtn.textContent = "Send me a reset link";
+        }
+      });
+
+      // ---- deletion -----------------------------------------------------
+      openBtn.addEventListener("click", function () {
+        clearError();
+        openBtn.hidden = true;
+        confirmForm.hidden = false;
+        phraseInput.focus();
+      });
+
+      cancelBtn.addEventListener("click", function () {
+        confirmForm.hidden = true;
+        confirmForm.reset();
+        submitBtn.disabled = true;
+        openBtn.hidden = false;
+        clearError();
+      });
+
+      // The button only unlocks once the exact phrase is typed, so deletion
+      // can't happen on a stray click.
+      phraseInput.addEventListener("input", function () {
+        submitBtn.disabled = phraseInput.value.trim() !== CONFIRM_PHRASE;
+      });
+
+      confirmForm.addEventListener("submit", async function (e) {
+        e.preventDefault();
+        clearError();
+        if (phraseInput.value.trim() !== CONFIRM_PHRASE) return;
+
+        submitBtn.disabled = true;
+        cancelBtn.disabled = true;
+        submitBtn.textContent = "Deleting…";
+
+        try {
+          await IntentAuth.deleteAccount();
+          window.location.replace("login.html?deleted=1");
+        } catch (err) {
+          showError(err && err.message
+            ? err.message
+            : "We couldn't delete your account. Please try again.");
+          submitBtn.disabled = false;
+          cancelBtn.disabled = false;
+          submitBtn.textContent = "Permanently delete";
+        }
+      });
+
+      loadProfile();
+    })();
+  </script>
+</body>
+</html>
