@@ -94,6 +94,44 @@ create policy "Users can update their own chat session"
 
 
 -- ============================================================================
+-- 2b. bio_chats --------------------------------------------------------------
+-- The Gemini Biology Tutor on ai.html, which we own end to end. Unlike
+-- chat_sessions (an opaque Botpress snapshot), `messages` is a plain array we
+-- write ourselves: [ { "role": "user" | "model", "text": "..." }, ... ].
+-- Also available on its own in bio-chat-schema.sql.
+-- ============================================================================
+
+create table if not exists public.bio_chats (
+  user_id    uuid primary key references auth.users (id) on delete cascade,
+  messages   jsonb       not null default '[]'::jsonb,
+  updated_at timestamptz not null default now()
+);
+
+alter table public.bio_chats enable row level security;
+
+drop policy if exists "Bio chats are viewable by their owner" on public.bio_chats;
+create policy "Bio chats are viewable by their owner"
+  on public.bio_chats for select
+  using (auth.uid() = user_id);
+
+drop policy if exists "Users can insert their own bio chat" on public.bio_chats;
+create policy "Users can insert their own bio chat"
+  on public.bio_chats for insert
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can update their own bio chat" on public.bio_chats;
+create policy "Users can update their own bio chat"
+  on public.bio_chats for update
+  using (auth.uid() = user_id)
+  with check (auth.uid() = user_id);
+
+drop policy if exists "Users can delete their own bio chat" on public.bio_chats;
+create policy "Users can delete their own bio chat"
+  on public.bio_chats for delete
+  using (auth.uid() = user_id);
+
+
+-- ============================================================================
 -- 3. Shared helpers + triggers -----------------------------------------------
 -- ============================================================================
 
@@ -117,6 +155,37 @@ drop trigger if exists chat_sessions_set_updated_at on public.chat_sessions;
 create trigger chat_sessions_set_updated_at
   before update on public.chat_sessions
   for each row execute function public.set_updated_at();
+
+drop trigger if exists bio_chats_set_updated_at on public.bio_chats;
+create trigger bio_chats_set_updated_at
+  before update on public.bio_chats
+  for each row execute function public.set_updated_at();
+
+-- bio_chats.messages is written straight from the browser, so RLS alone would
+-- still let a signed-in user park megabytes in their own row. Cap it
+-- server-side. The UI trims to a much smaller window; this is the backstop.
+create or replace function public.bio_chats_limit_size()
+returns trigger
+language plpgsql
+as $$
+begin
+  if jsonb_typeof(new.messages) <> 'array' then
+    raise exception 'messages must be a JSON array';
+  end if;
+  if jsonb_array_length(new.messages) > 200 then
+    raise exception 'conversation too long (max 200 messages)';
+  end if;
+  if octet_length(new.messages::text) > 262144 then
+    raise exception 'conversation too large (max 256 KB)';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists bio_chats_limit_size on public.bio_chats;
+create trigger bio_chats_limit_size
+  before insert or update on public.bio_chats
+  for each row execute function public.bio_chats_limit_size();
 
 -- Auto-create a profile row on signup.
 -- SECURITY DEFINER lets this run with elevated rights so it can insert the row
@@ -196,6 +265,11 @@ create trigger profiles_protect_columns
 revoke update on public.chat_sessions from anon, authenticated;
 grant  update (user_id, bp_state) on public.chat_sessions to authenticated;
 
+-- bio_chats: same reasoning — updated_at is server-owned, user_id must stay
+-- grantable for the upsert in saveBioChat().
+revoke update on public.bio_chats from anon, authenticated;
+grant  update (user_id, messages) on public.bio_chats to authenticated;
+
 
 -- ============================================================================
 -- 5. Self-service account deletion -------------------------------------------
@@ -206,6 +280,7 @@ grant  update (user_id, bp_state) on public.chat_sessions to authenticated;
 -- browser), so we expose exactly one narrow, elevated function instead.
 --
 -- WHAT GETS ERASED for the calling user:
+--   * public.bio_chats row      -> the saved Biology Tutor conversation
 --   * public.chat_sessions row  -> the saved AI-tutor conversation + token
 --   * public.profiles row       -> name, email, role
 --   * auth.users row            -> the login itself (and its refresh tokens,
@@ -229,9 +304,10 @@ begin
     raise exception 'Not signed in.' using errcode = '28000';
   end if;
 
+  delete from public.bio_chats     where user_id = uid;
   delete from public.chat_sessions where user_id = uid;
-  delete from public.profiles     where id      = uid;
-  delete from auth.users          where id      = uid;
+  delete from public.profiles      where id      = uid;
+  delete from auth.users           where id      = uid;
 end;
 $$;
 

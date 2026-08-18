@@ -1550,14 +1550,6 @@ footer {
   cursor: pointer;
 }
 
-.forgot-link {
-  font-weight: 700;
-  font-size: 0.92rem;
-  color: var(--terracotta-deep);
-  transition: opacity 0.2s ease;
-}
-.forgot-link:hover { opacity: 0.75; }
-
 .auth-submit {
   width: 100%;
   padding: 1rem 1.5rem;
@@ -2067,4 +2059,332 @@ nav a.active:not(.btn)::after {
 @media (max-width: 560px) {
   .account-details dt { min-width: 100%; }
   .delete-actions .btn { flex: 1 1 100%; }
+}
+
+/* ==========================================================================
+   Biology Lab — the Gemini tutor panel on ai.html
+   Same clay vocabulary as the rest of the site: the conversation sits in a
+   pressed-in well, the composer is a second well, and the only raised things
+   are the ones you can press.
+   ========================================================================== */
+
+/* Screen-reader-only label (the composer's <textarea> carries a visible
+   placeholder, but a placeholder is not an accessible name). */
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* Section headings can carry the same shimmering accent as the hero h1. */
+.section-header h2 .accent {
+  background: linear-gradient(100deg,
+    var(--leaf-deep) 0%, var(--marigold-deep) 42%, var(--teal) 68%, var(--leaf-deep) 100%);
+  background-size: 220% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  font-style: italic;
+  animation: accent-shimmer 7s linear infinite;
+}
+
+.bio-chat {
+  background: var(--surface);
+  border-radius: var(--radius);
+  box-shadow: var(--clay);
+  padding: 1.4rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* ---------- header row ---------- */
+
+.bio-head {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+  padding: 0 0.35rem;
+}
+
+.bio-avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: linear-gradient(145deg, var(--leaf) 0%, var(--teal) 100%);
+  box-shadow: var(--clay-sm);
+}
+
+.bio-avatar svg { width: 24px; height: 24px; }
+
+.bio-head-text { display: flex; flex-direction: column; gap: 2px; margin-right: auto; }
+
+.bio-head-text strong {
+  font-family: var(--font-display);
+  font-size: 1.16rem;
+  color: var(--heading);
+}
+
+.bio-head-text span {
+  font-size: 0.84rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.bio-clear {
+  flex: none;
+  font: 700 0.82rem/1 var(--font-body);
+  color: var(--teal-deep);
+  background: var(--surface-strong);
+  border: 0;
+  border-radius: 999px;
+  padding: 0.6rem 1.05rem;
+  cursor: pointer;
+  box-shadow: var(--clay-sm);
+  transition: transform 0.2s var(--ease-out), box-shadow 0.2s var(--ease-out);
+}
+
+.bio-clear:hover { transform: translateY(-2px); box-shadow: var(--clay); }
+.bio-clear:active { transform: translateY(0); box-shadow: var(--clay-inset); }
+
+/* ---------- conversation ---------- */
+
+.bio-log {
+  background: var(--surface-inset);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--clay-inset);
+  padding: 1.25rem;
+  height: clamp(320px, 52vh, 460px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  scroll-behavior: smooth;
+}
+
+.bio-log::-webkit-scrollbar { width: 10px; }
+.bio-log::-webkit-scrollbar-thumb {
+  background: rgba(92, 158, 49, 0.35);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+.bio-msg { display: flex; max-width: 100%; }
+.bio-msg-user { justify-content: flex-end; }
+
+.bio-bubble {
+  max-width: 74%;
+  padding: 0.8rem 1.05rem;
+  border-radius: 20px;
+  font-size: 0.97rem;
+  line-height: 1.6;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  animation: bio-pop 0.32s var(--ease-spring) both;
+}
+
+.bio-msg-user .bio-bubble {
+  background: linear-gradient(150deg, var(--leaf) 0%, var(--leaf-deep) 100%);
+  color: #fdfbf5;
+  border-bottom-right-radius: 7px;
+  box-shadow: 4px 5px 12px rgba(67, 120, 31, 0.3);
+}
+
+.bio-msg-model .bio-bubble {
+  background: var(--surface-strong);
+  color: var(--text);
+  border-bottom-left-radius: 7px;
+  box-shadow: var(--clay-sm);
+}
+
+@keyframes bio-pop {
+  from { opacity: 0; transform: translateY(9px) scale(0.97); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Markdown the tutor is allowed to emit. */
+.bio-bubble p + p { margin-top: 0.62rem; }
+.bio-bubble h4 {
+  font-family: var(--font-display);
+  font-size: 1rem;
+  color: var(--heading);
+  margin: 0.7rem 0 0.35rem;
+}
+.bio-bubble h4:first-child { margin-top: 0; }
+.bio-bubble ul { margin: 0.5rem 0 0.15rem; padding-left: 1.15rem; }
+.bio-bubble li { margin-bottom: 0.3rem; }
+.bio-bubble strong { color: var(--heading); font-weight: 800; }
+.bio-msg-user .bio-bubble strong { color: #fff; }
+.bio-bubble code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.88em;
+  background: rgba(16, 128, 122, 0.1);
+  padding: 0.1em 0.38em;
+  border-radius: 6px;
+}
+
+/* ---------- empty state ---------- */
+
+.bio-empty {
+  margin: auto;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.05rem;
+  padding: 0.5rem 0;
+}
+
+.bio-empty p {
+  font-family: var(--font-display);
+  font-size: 1.22rem;
+  color: var(--heading);
+}
+
+.bio-starters {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.55rem;
+  max-width: 34rem;
+}
+
+.bio-chip {
+  font: 600 0.86rem/1.35 var(--font-body);
+  color: var(--teal-deep);
+  background: var(--surface-strong);
+  border: 0;
+  border-radius: 999px;
+  padding: 0.62rem 1.05rem;
+  cursor: pointer;
+  box-shadow: var(--clay-sm);
+  transition: transform 0.22s var(--ease-spring), box-shadow 0.22s var(--ease-out), color 0.22s;
+}
+
+.bio-chip:hover { transform: translateY(-3px); box-shadow: var(--clay); color: var(--leaf-deep); }
+.bio-chip:active { transform: translateY(-1px) scale(0.97); box-shadow: var(--clay-inset); }
+
+/* ---------- thinking indicator ---------- */
+
+.bio-dots { display: inline-flex; gap: 5px; padding: 0.2rem 0.1rem; }
+
+.bio-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+  animation: bio-bounce 1.25s ease-in-out infinite;
+}
+
+.bio-dots i:nth-child(2) { animation-delay: 0.16s; }
+.bio-dots i:nth-child(3) { animation-delay: 0.32s; }
+
+@keyframes bio-bounce {
+  0%, 70%, 100% { transform: translateY(0); opacity: 0.4; }
+  35%           { transform: translateY(-5px); opacity: 1; }
+}
+
+/* ---------- notice line ---------- */
+
+.bio-notice {
+  margin: 0 0.35rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.bio-notice-error {
+  color: var(--danger-deep);
+  background: var(--danger-soft);
+  border-radius: 14px;
+  padding: 0.7rem 1rem;
+}
+
+/* ---------- composer ---------- */
+
+.bio-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 0.7rem;
+  background: var(--surface-inset);
+  border-radius: 26px;
+  box-shadow: var(--clay-inset);
+  padding: 0.5rem 0.5rem 0.5rem 1.15rem;
+}
+
+.bio-input {
+  flex: 1;
+  border: 0;
+  outline: none;
+  resize: none;
+  background: transparent;
+  font: 500 1rem/1.5 var(--font-body);
+  color: var(--text);
+  padding: 0.72rem 0;
+  max-height: 140px;
+}
+
+.bio-input::placeholder { color: var(--muted); opacity: 0.85; }
+.bio-input:disabled { opacity: 0.6; cursor: not-allowed; }
+
+.bio-send {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  color: #4a2f05;
+  background: linear-gradient(150deg, var(--marigold) 0%, var(--marigold-deep) 100%);
+  box-shadow: var(--clay-sm);
+  transition: transform 0.22s var(--ease-spring), box-shadow 0.22s var(--ease-out);
+}
+
+.bio-send svg { width: 21px; height: 21px; }
+.bio-send:hover:not(:disabled) { transform: translateY(-2px) scale(1.05); box-shadow: var(--clay); }
+.bio-send:active:not(:disabled) { transform: translateY(0) scale(0.96); box-shadow: var(--clay-inset); }
+
+.bio-send:disabled { opacity: 0.5; cursor: not-allowed; }
+.bio-send.is-busy svg { animation: bio-send-spin 1.1s linear infinite; }
+
+@keyframes bio-send-spin {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+
+/* Keyboard focus has to stay obvious on both wells. */
+.bio-form:focus-within { box-shadow: var(--clay-inset), 0 0 0 3px rgba(92, 158, 49, 0.35); }
+.bio-chip:focus-visible,
+.bio-clear:focus-visible,
+.bio-send:focus-visible { outline: 3px solid var(--teal); outline-offset: 3px; }
+
+@media (max-width: 620px) {
+  .bio-chat { padding: 1rem; }
+  .bio-log { padding: 0.9rem; }
+  .bio-bubble { max-width: 88%; }
+  .bio-head-text span { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bio-bubble { animation: none; }
+  .bio-dots i { animation-duration: 2.4s; }
+  .bio-send.is-busy svg { animation: none; }
+  .section-header h2 .accent { animation: none; }
+  .bio-log { scroll-behavior: auto; }
 }

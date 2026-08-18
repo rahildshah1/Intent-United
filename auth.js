@@ -1,5 +1,10 @@
 /* Intent United — Supabase-backed auth.
    Uses Supabase Auth (email + password) for signup, login, session, and logout.
+   Email confirmation is OFF in the Supabase dashboard, so signUp() returns a
+   live session immediately — there is no "check your email" step. There is
+   also no forgot-password flow: password changes require the current
+   password (see changePassword below), not an emailed link.
+
    The client is created from window.SUPABASE_URL / window.SUPABASE_ANON_KEY,
    provided by config.js (gitignored). The anon key is a public, RLS-protected
    key and is safe in the browser. NEVER load the service_role/secret key here.
@@ -25,12 +30,6 @@
 
   var sb = global.supabase.createClient(global.SUPABASE_URL, global.SUPABASE_ANON_KEY);
 
-  /* The client consumes and then strips any auth tokens in the URL as soon as
-     it boots, so snapshot the address now — the recovery flow below still
-     needs to read what the emailed link carried. */
-  var INITIAL_HASH = global.location.hash;
-  var INITIAL_SEARCH = global.location.search;
-
   function whenReady(fn) {
     if (document.readyState === "loading") {
       document.addEventListener("DOMContentLoaded", fn);
@@ -45,15 +44,10 @@
     var result = await sb.auth.signUp({
       email: String(email).trim(),
       password: password,
-      options: {
-        data: { name: String(name || "").trim() },
-        // Where the confirmation-email link sends the user back to.
-        emailRedirectTo: new URL("login.html", window.location.href).href
-      }
+      options: { data: { name: String(name || "").trim() } }
     });
     if (result.error) throw result.error;
-    // With "Confirm email" on, signUp returns a user but no session yet.
-    return { needsConfirmation: !result.data.session };
+    return result.data.user;
   }
 
   async function login(email, password) {
@@ -83,86 +77,33 @@
     } catch (e) { /* storage blocked — nothing to clean up */ }
   }
 
-  // dest lets a caller land somewhere more specific than the bare gate,
-  // e.g. login.html?reset=1 after a password change.
+  // dest lets a caller land somewhere more specific than the bare gate.
   async function logout(dest) {
-    clearBotpressState();
+    clearTutorState();
     await sb.auth.signOut();
     window.location.href = dest || "login.html";
   }
 
-  /* ---- password reset ------------------------------------------------ */
-  /* Two halves, on two pages:
-       1. login.html  -> sendPasswordReset() emails a one-time recovery link
-       2. reset-password.html -> startPasswordRecovery() turns the token in
-          that link into a short-lived session, then updatePassword() sets the
-          new password on it. */
-
-  async function sendPasswordReset(email) {
-    var result = await sb.auth.resetPasswordForEmail(String(email).trim(), {
-      redirectTo: new URL("reset-password.html", window.location.href).href
-    });
-    if (result.error) throw result.error;
-  }
-
-  /* Establish the recovery session the emailed link carries. Throws with a
-     readable message when the link is expired, already used, or malformed. */
-  async function startPasswordRecovery() {
-    var hash = new URLSearchParams(String(INITIAL_HASH).replace(/^#/, ""));
-    var query = new URLSearchParams(INITIAL_SEARCH);
-
-    // Supabase reports a dead link as error/error_description on the URL.
-    var errDesc = hash.get("error_description") || query.get("error_description");
-    if (errDesc) throw new Error(errDesc);
-
-    // PKCE links carry ?code=, older implicit-flow links carry
-    // #access_token=&refresh_token=, and both may carry type=recovery.
-    var code = query.get("code");
-    var hasImplicitToken = !!hash.get("access_token");
-    var isRecoveryLink = !!(code || hasImplicitToken ||
-      hash.get("type") === "recovery" || query.get("type") === "recovery");
-
-    /* Require an actual recovery link. Without this, getSession() below would
-       be satisfied by ANY ordinary signed-in session, so anyone with brief
-       access to an unlocked browser could open this page directly and set a
-       new password without knowing the current one — a full account takeover
-       from a shared or unattended device. */
-    if (!isRecoveryLink) {
-      throw new Error("Open the reset link from your email to set a new password.");
-    }
-
-    // The client usually picks the token up on its own (detectSessionInUrl).
+  /* Change the signed-in user's password. Requires the current password
+     (re-verified via signInWithPassword) rather than an emailed link — there
+     is no forgot-password flow on this site. */
+  async function changePassword(currentPassword, newPassword) {
     var session = await sb.auth.getSession();
-    if (!session.data.session) {
-      // Otherwise redeem it by hand.
-      if (code) {
-        var exchanged = await sb.auth.exchangeCodeForSession(code);
-        if (exchanged.error) throw exchanged.error;
-      } else if (hash.get("access_token")) {
-        var restored = await sb.auth.setSession({
-          access_token: hash.get("access_token"),
-          refresh_token: hash.get("refresh_token")
-        });
-        if (restored.error) throw restored.error;
-      }
-      session = await sb.auth.getSession();
-    }
+    if (!session.data.session) throw new Error("You must be signed in.");
+    var email = session.data.session.user.email;
 
-    if (!session.data.session) {
-      throw new Error("This reset link is invalid or has expired. Request a new one.");
-    }
+    var check = await sb.auth.signInWithPassword({ email: email, password: currentPassword });
+    if (check.error) throw new Error("Your current password is incorrect.");
 
-    // Don't leave a usable token sitting in the address bar / history.
-    try {
-      history.replaceState(null, "", window.location.pathname);
-    } catch (e) { /* non-fatal */ }
-  }
-
-  /* Set a new password on the current session (recovery or normal sign-in). */
-  async function updatePassword(newPassword) {
     var result = await sb.auth.updateUser({ password: newPassword });
     if (result.error) throw result.error;
     return result.data.user;
+  }
+
+  // Turn a Supabase auth error into a message safe to show a user.
+  function describeAuthError(err) {
+    if (!err) return "Something went wrong. Please try again.";
+    return err.message || "Something went wrong. Please try again.";
   }
 
   /* Permanently erase the signed-in user's account.
@@ -170,8 +111,8 @@
      Everything happens inside the delete_own_account() Postgres function
      (see supabase/delete-account-schema.sql), which runs with elevated rights and
      always targets auth.uid() — the caller's own id. It removes the saved
-     chat session (conversation + token), the profile row, and the auth user
-     itself. There is no undo. */
+     chat session (conversation + token), the Biology Tutor transcript, the
+     profile row, and the auth user itself. There is no undo. */
   async function deleteAccount() {
     var session = await sb.auth.getSession();
     if (!session.data.session) throw new Error("You must be signed in.");
@@ -179,9 +120,10 @@
     var result = await sb.rpc("delete_own_account");
     if (result.error) throw result.error;
 
-    // The Botpress widget caches the conversation under "bp*" keys in this
-    // browser. Clear them so the next account on this device starts fresh.
-    clearBotpressState();
+    // Both tutors cache their conversation in this browser (Botpress under
+    // "bp*" keys, the biology chat under "iu_bio_chat"). Clear them so the
+    // next account on this device starts fresh.
+    clearTutorState();
 
     // The server-side user is already gone, so signOut may fail; all we still
     // need is the local token cleared, which signOut does before the request.
@@ -197,7 +139,7 @@
   var idleStarted = false;
 
   async function idleSignOut() {
-    clearBotpressState();
+    clearTutorState();
     try { await sb.auth.signOut(); } catch (e) { /* sign out best-effort */ }
     var dest = new URL("login.html", window.location.href);
     dest.searchParams.set("timeout", "1");
@@ -233,6 +175,14 @@
 
   async function isLoggedIn() {
     return !!(await getUser());
+  }
+
+  /* The signed-in user's JWT. The Biology Tutor Worker takes this as a Bearer
+     token and checks it with Supabase before spending any Gemini quota, so
+     only real accounts can draw on the site's shared daily budget. */
+  async function getAccessToken() {
+    var result = await sb.auth.getSession();
+    return result.data.session ? result.data.session.access_token : null;
   }
 
   /* ---- profiles (public.profiles table, owner-only via RLS) --------- */
@@ -291,6 +241,50 @@
       .from("chat_sessions")
       .upsert({ user_id: session.data.session.user.id, bp_state: state });
     if (result.error) throw result.error;
+  }
+
+  /* ---- Biology Tutor history (bio_chats table, owner-only via RLS) ---- */
+  /* The Gemini biology chat on ai.html is ours end to end, so unlike the
+     Botpress snapshot above we store the transcript itself:
+       [ { role: "user" | "model", text: "..." }, ... ]
+     Saved per account so a conversation started in a classroom continues on
+     another device. */
+
+  // Return the signed-in user's saved biology transcript, or null.
+  async function getBioChat() {
+    var session = await sb.auth.getSession();
+    if (!session.data.session) return null;
+    var result = await sb
+      .from("bio_chats")
+      .select("messages")
+      .eq("user_id", session.data.session.user.id)
+      .maybeSingle();
+    if (result.error) throw result.error;
+    return result.data ? result.data.messages : null;
+  }
+
+  // Upsert the biology transcript for the signed-in user.
+  async function saveBioChat(messages) {
+    var session = await sb.auth.getSession();
+    if (!session.data.session) return;
+    var result = await sb
+      .from("bio_chats")
+      .upsert({ user_id: session.data.session.user.id, messages: messages || [] });
+    if (result.error) throw result.error;
+  }
+
+  /* Drop the biology transcript from THIS browser. Same shared-device concern
+     as clearBotpressState: the cache is only a fast path for the account that
+     wrote it, so every sign-out path clears it. The server-side row is left
+     alone — that is the account's copy, and it is restored on next sign-in. */
+  function clearBioChatState() {
+    try { localStorage.removeItem("iu_bio_chat"); } catch (e) { /* storage blocked */ }
+  }
+
+  // Everything a sign-out must wipe from this device.
+  function clearTutorState() {
+    clearBotpressState();
+    clearBioChatState();
   }
 
   /* Protect a page: hide it until a session is confirmed; redirect to the gate
@@ -364,10 +358,15 @@
     updateProfile: updateProfile,
     getChatState: getChatState,
     saveChatState: saveChatState,
+    getBioChat: getBioChat,
+    saveBioChat: saveBioChat,
+    getUser: getUser,
+    getAccessToken: getAccessToken,
     clearBotpressState: clearBotpressState,
+    clearBioChatState: clearBioChatState,
+    clearTutorState: clearTutorState,
     deleteAccount: deleteAccount,
-    sendPasswordReset: sendPasswordReset,
-    startPasswordRecovery: startPasswordRecovery,
-    updatePassword: updatePassword
+    changePassword: changePassword,
+    describeAuthError: describeAuthError
   };
 })(window);

@@ -1,0 +1,29 @@
+name = "intent-united"
+main = "worker/index.js"
+compatibility_date = "2026-07-26"
+
+# Static site. With `main` set, assets are matched first and only unmatched
+# paths (i.e. /api/*) reach the Worker. The binding lets the Worker serve
+# assets itself for anything that falls through.
+[assets]
+directory = "./"
+binding = "ASSETS"
+
+# Public values only — the anon key is RLS-protected and already ships to the
+# browser in config.js. The Worker uses them to verify a caller's session
+# before spending Gemini quota. The Gemini keys are NOT here; they are secrets:
+#   npx wrangler secret put GEMINI_API_KEY_1
+#   npx wrangler secret put GEMINI_API_KEY_2
+[vars]
+SUPABASE_URL = "https://kwseatndoymwablpypab.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt3c2VhdG5kb3ltd2FibHB5cGFiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ3NDc5MDIsImV4cCI6MjEwMDMyMzkwMn0.4Y7gyN3yPZO2eNyEo6ApziVo-V9WT2sSgDakJb2enMk"
+
+# Site-wide Gemini request counter. A Durable Object rather than KV because
+# increments must not be lost — see worker/index.js for the reasoning.
+[[durable_objects.bindings]]
+name = "QUOTA"
+class_name = "QuotaCounter"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["QuotaCounter"]

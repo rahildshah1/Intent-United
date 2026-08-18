@@ -116,6 +116,53 @@
       </div>
     </section>
 
+    <!-- Biology Lab — Gemini-backed tutor. Keys and the shared daily request
+         budget live in the Cloudflare Worker (worker/index.js); this page only
+         ever talks to /api/bio-chat. -->
+    <section class="page-section">
+      <div class="container">
+        <div class="section-header reveal">
+          <div>
+            <div class="tag">Subject specialist</div>
+            <h2>The <span class="accent">Biology</span> Lab</h2>
+          </div>
+          <p>
+            A second tutor trained on one subject alone. Ask it anything about cells, genetics, ecosystems or the human body — it adapts to your level, and it will politely turn away anything that isn't biology.
+          </p>
+        </div>
+
+        <div id="bio-chat" class="bio-chat reveal">
+          <div class="bio-head">
+            <span class="bio-avatar" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 3c0 4.5 10 5.5 10 10S7 18.5 7 21"/><path d="M17 3c0 4.5-10 5.5-10 10s10 3.5 10 8"/><path d="M8.5 7h7M8.5 17h7M7.8 10h8.4"/></svg>
+            </span>
+            <div class="bio-head-text">
+              <strong>Biology Tutor</strong>
+              <span>Biology only · every level welcome</span>
+            </div>
+            <button type="button" id="bio-clear" class="bio-clear" hidden>New chat</button>
+          </div>
+
+          <div id="bio-log" class="bio-log" role="log" aria-live="polite" aria-label="Biology tutor conversation">
+            <div id="bio-empty" class="bio-empty">
+              <p>What would you like to understand today?</p>
+              <div id="bio-starters" class="bio-starters"></div>
+            </div>
+          </div>
+
+          <p id="bio-notice" class="bio-notice" role="status" hidden></p>
+
+          <form id="bio-form" class="bio-form">
+            <label class="visually-hidden" for="bio-input">Ask a biology question</label>
+            <textarea id="bio-input" class="bio-input" rows="1" placeholder="Ask a biology question…" autocomplete="off"></textarea>
+            <button type="submit" id="bio-send" class="bio-send" aria-label="Send question">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15"/><path d="m13 6 6 6-6 6"/></svg>
+            </button>
+          </form>
+        </div>
+      </div>
+    </section>
+
     <section class="page-section">
       <div class="container">
         <div class="section-header reveal">
@@ -172,6 +219,7 @@
   </footer>
 
   <script src="main.js"></script>
+  <script src="bio-chat.js"></script>
 
   <!--
     AI tutor loader with cross-device continuity.

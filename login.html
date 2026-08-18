@@ -88,7 +88,6 @@
                   <input type="checkbox" name="remember" />
                   <span>Remember me</span>
                 </label>
-                <a href="#" class="forgot-link" id="forgot-link">Forgot password?</a>
               </div>
 
               <button type="submit" class="btn btn-primary auth-submit" id="auth-submit">Log In</button>
@@ -123,8 +122,6 @@
       var tabIndicator = document.querySelector('.auth-tab-indicator');
       var nameField = document.getElementById('name-field');
       var nameInput = nameField.querySelector('input');
-      var passwordField = document.getElementById('password-field');
-      var forgotLink = document.getElementById('forgot-link');
       var pwInput = document.getElementById('password');
       var pwChecklist = document.getElementById('pw-checklist');
       var loginExtras = document.getElementById('login-extras');
@@ -156,14 +153,8 @@
         noticeBox.textContent = '';
       }
 
-      // "reset" has no tab of its own — it's reached from the Forgot password
-      // link — so it keeps the Log In tab lit, which is where it returns to.
-      function tabMode() {
-        return mode === 'reset' ? 'login' : mode;
-      }
-
       function moveTabIndicator() {
-        var active = tabs.filter(function (t) { return t.dataset.mode === tabMode(); })[0];
+        var active = tabs.filter(function (t) { return t.dataset.mode === mode; })[0];
         if (!active || !tabIndicator) return;
         tabIndicator.style.width = active.offsetWidth + 'px';
         tabIndicator.style.translate = active.offsetLeft + 'px 0';
@@ -209,15 +200,13 @@
 
       function updateTabsUI() {
         tabs.forEach(function (t) {
-          t.classList.toggle('is-active', t.dataset.mode === tabMode());
+          t.classList.toggle('is-active', t.dataset.mode === mode);
         });
         moveTabIndicator();
       }
 
       function submitLabel() {
-        if (mode === 'signup') return 'Create Account';
-        if (mode === 'reset') return 'Send Reset Link';
-        return 'Log In';
+        return mode === 'signup' ? 'Create Account' : 'Log In';
       }
 
       function applyModeContent() {
@@ -225,31 +214,21 @@
         clearNotice();
 
         var signup = mode === 'signup';
-        var reset = mode === 'reset';
 
         nameField.hidden = !signup;
         nameInput.required = signup;
-        // Resetting only needs the email address.
-        passwordField.hidden = reset;
-        pwInput.required = !reset;
         pwChecklist.hidden = !signup;
-        loginExtras.hidden = signup || reset;
+        loginExtras.hidden = signup;
         pwInput.setAttribute('autocomplete', signup ? 'new-password' : 'current-password');
 
-        title.textContent = reset
-          ? 'Reset your password'
-          : (signup ? 'Create your account' : 'Welcome back');
-        subtitle.textContent = reset
-          ? "Enter your email and we'll send you a link to set a new password."
-          : (signup
-            ? 'Join Intent United in just a few seconds.'
-            : 'Enter your details to access your account.');
+        title.textContent = signup ? 'Create your account' : 'Welcome back';
+        subtitle.textContent = signup
+          ? 'Join Intent United in just a few seconds.'
+          : 'Enter your details to access your account.';
         submitBtn.textContent = submitLabel();
-        switchLine.innerHTML = reset
-          ? 'Remembered it? <a href="#" data-mode="login">Log in</a>'
-          : (signup
-            ? 'Already have an account? <a href="#" data-mode="login">Log in</a>'
-            : "Don't have an account? <a href=\"#\" data-mode=\"signup\">Sign up</a>");
+        switchLine.innerHTML = signup
+          ? 'Already have an account? <a href="#" data-mode="login">Log in</a>'
+          : "Don't have an account? <a href=\"#\" data-mode=\"signup\">Sign up</a>";
       }
 
       // Reserve enough height for the taller (signup) form in both modes so
@@ -313,13 +292,6 @@
         switchMode(link.dataset.mode);
       });
 
-      if (forgotLink) {
-        forgotLink.addEventListener('click', function (e) {
-          e.preventDefault();
-          switchMode('reset');
-        });
-      }
-
       if (pwInput) {
         pwInput.addEventListener('input', updatePwChecklist);
       }
@@ -361,39 +333,23 @@
         }
 
         submitBtn.disabled = true;
-        submitBtn.textContent = mode === 'signup'
-          ? 'Creating account…'
-          : (mode === 'reset' ? 'Sending…' : 'Signing in…');
+        submitBtn.textContent = mode === 'signup' ? 'Creating account…' : 'Signing in…';
 
         try {
-          if (mode === 'reset') {
-            await IntentAuth.sendPasswordReset(email);
-            // Deliberately the same message whether or not the address exists,
-            // so this can't be used to find out who has an account.
-            showNotice('If an account exists for that email, a reset link is on its way. Check your inbox.');
-          } else if (mode === 'signup') {
-            var res = await IntentAuth.register(data.get('name'), email, password);
-            if (res && res.needsConfirmation) {
-              // Email confirmation is on — send them to log in after confirming.
-              setMode('login');
-              form.reset();
-              showNotice('Account created. Check your email to confirm your account, then log in.');
-            } else {
-              window.location.href = 'index.html';
-            }
+          if (mode === 'signup') {
+            await IntentAuth.register(data.get('name'), email, password);
           } else {
             await IntentAuth.login(email, password);
-            window.location.href = 'index.html';
           }
+          window.location.href = 'index.html';
         } catch (err) {
           if (err && err.code === 'weak_password') {
             showError("Your password doesn't meet the requirements below.");
           } else {
-            showError(err && err.message ? err.message : 'Something went wrong. Please try again.');
+            showError(IntentAuth.describeAuthError(err));
           }
         } finally {
           submitBtn.disabled = false;
-          // Re-derive from the current mode (signup success switches to login).
           submitBtn.textContent = submitLabel();
         }
       });
@@ -412,9 +368,6 @@
         history.replaceState(null, '', window.location.pathname);
       } else if (params.get('deleted') === '1') {
         showNotice('Your account and all of its data have been permanently deleted.');
-        history.replaceState(null, '', window.location.pathname);
-      } else if (params.get('reset') === '1') {
-        showNotice('Your password has been updated. Log in with your new password.');
         history.replaceState(null, '', window.location.pathname);
       }
     })();

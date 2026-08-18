@@ -4,6 +4,11 @@
   "private": true,
   "description": "Intent United nonprofit site — static HTML/CSS/JS",
   "scripts": {
-    "dev": "node devserver.js"
+    "dev": "node devserver.js",
+    "cf:dev": "wrangler dev --persist-to \"${TMPDIR:-/tmp}/intent-united-wrangler\"",
+    "cf:deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.124.0"
   }
 }
