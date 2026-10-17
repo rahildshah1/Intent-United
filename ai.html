@@ -11,7 +11,7 @@
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="config.js"></script>
   <script src="auth.js"></script>
-  <script>IntentAuth.requireAuth();</script>
+  <script>IntentAuth.gate();</script>
   <link rel="stylesheet" href="style.css" />
 
   <style>
@@ -84,6 +84,83 @@
   </header>
 
   <main>
+    <section class="auth-section auth-gate" id="auth-gate">
+      <div class="container auth-grid">
+        <div class="auth-visual reveal">
+          <div class="tag">Members only</div>
+          <h1>Sign in to meet your <span class="accent">AI tutor</span></h1>
+          <p>The AI Agent and Biology Lab are for signed-in learners, so your progress follows you from device to device. Everything else on the site stays open to everyone.</p>
+          <div class="auth-visual-card soft-hover">
+            <div class="lesson-box">
+              <h3>Today's reading lesson</h3>
+              <p>AI guided storytelling adapts to each child's pace and language comfort.</p>
+              <div class="progress"><span></span></div>
+            </div>
+            <div class="speech-bubble">Great job, Asha. Let's try the next word together.</div>
+          </div>
+        </div>
+
+        <div class="auth-card reveal">
+          <div class="auth-tabs" role="tablist">
+            <span class="auth-tab-indicator" aria-hidden="true"></span>
+            <button type="button" class="auth-tab is-active" data-mode="login" role="tab">Log In</button>
+            <button type="button" class="auth-tab" data-mode="signup" role="tab">Sign Up</button>
+          </div>
+
+          <div class="auth-body" id="auth-body">
+            <h2 id="auth-title">Welcome back</h2>
+            <p class="auth-sub" id="auth-subtitle">Enter your details to access your account.</p>
+
+            <div class="auth-error" id="auth-error" role="alert" hidden></div>
+            <div class="auth-notice" id="auth-notice" role="status" hidden></div>
+
+            <form id="auth-form" novalidate>
+              <label class="field" id="name-field" hidden>
+                <span>Full name</span>
+                <input type="text" name="name" placeholder="Asha Kumar" autocomplete="name" />
+              </label>
+
+              <label class="field">
+                <span>Email address</span>
+                <input type="email" name="email" placeholder="you@example.com" autocomplete="email" required />
+              </label>
+
+              <label class="field" id="password-field">
+                <span>Password</span>
+                <div class="password-wrap">
+                  <input type="password" name="password" id="password" placeholder="Enter your password" autocomplete="current-password" required />
+                  <button type="button" class="toggle-pw" id="toggle-pw" aria-label="Show password">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M1.5 12S5 5 12 5s10.5 7 10.5 7-3.5 7-10.5 7S1.5 12 1.5 12Z"/><circle cx="12" cy="12" r="3.2"/></svg>
+                  </button>
+                </div>
+                <ul class="pw-checklist" id="pw-checklist" hidden>
+                  <li class="pw-check" data-rule="length"><span class="pw-check-icon"></span>At least 8 characters</li>
+                  <li class="pw-check" data-rule="upper"><span class="pw-check-icon"></span>One uppercase letter</li>
+                  <li class="pw-check" data-rule="lower"><span class="pw-check-icon"></span>One lowercase letter</li>
+                  <li class="pw-check" data-rule="number"><span class="pw-check-icon"></span>One number</li>
+                  <li class="pw-check" data-rule="symbol"><span class="pw-check-icon"></span>One symbol</li>
+                </ul>
+              </label>
+
+              <div class="field-row" id="login-extras">
+                <label class="check">
+                  <input type="checkbox" name="remember" />
+                  <span>Remember me</span>
+                </label>
+              </div>
+
+              <button type="submit" class="btn btn-primary auth-submit" id="auth-submit">Log In</button>
+            </form>
+
+            <p class="auth-switch" id="auth-switch">
+              Don't have an account? <a href="#" data-mode="signup">Sign up</a>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="gated">
     <section class="hero">
       <div class="container hero-grid">
         <div>
@@ -199,6 +276,7 @@
         </div>
       </div>
     </section>
+    </div>
   </main>
 
   <footer>
@@ -219,6 +297,7 @@
   </footer>
 
   <script src="main.js"></script>
+  <script src="auth-form.js"></script>
   <script src="bio-chat.js"></script>
 
   <!--
@@ -364,7 +443,14 @@
         window.addEventListener("pagehide", saveIfChanged);
       }
 
-      window.addEventListener("load", start);
+      // Only boot the tutor for a signed-in visitor; everyone else just sees
+      // the sign-in card (see IntentAuth.gate).
+      window.addEventListener("load", function () {
+        if (document.documentElement.classList.contains("is-authed")) { start(); return; }
+        if (window.IntentAuth && IntentAuth.whenGated) {
+          IntentAuth.whenGated().then(function (user) { if (user) start(); });
+        }
+      });
     })();
   </script>
 </body>

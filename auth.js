@@ -81,7 +81,7 @@
   async function logout(dest) {
     clearTutorState();
     await sb.auth.signOut();
-    window.location.href = dest || "login.html";
+    window.location.href = dest || "ai.html";
   }
 
   /* Change the signed-in user's password. Requires the current password
@@ -141,7 +141,7 @@
   async function idleSignOut() {
     clearTutorState();
     try { await sb.auth.signOut(); } catch (e) { /* sign out best-effort */ }
-    var dest = new URL("login.html", window.location.href);
+    var dest = new URL("ai.html", window.location.href);
     dest.searchParams.set("timeout", "1");
     window.location.replace(dest.href);
   }
@@ -299,17 +299,41 @@
       user = null;
     }
     if (!user) {
-      window.location.replace("login.html");
+      window.location.replace("ai.html");
       return;
     }
     document.documentElement.style.visibility = "";
     whenReady(function () { enhanceNav(user); startIdleLogout(); });
   }
 
+  /* Soft gate for the AI page: the rest of the page chrome stays visible and
+     the sign-in card is shown in place of the protected content. CSS keys off
+     the is-authed / is-locked class this sets (nothing shows until it does). */
+  var gatePromise = null;
+  function gate() {
+    if (gatePromise) return gatePromise;
+    gatePromise = (async function () {
+      var user = null;
+      try { user = await getUser(); } catch (e) { user = null; }
+      var root = document.documentElement;
+      if (user) {
+        root.classList.add("is-authed");
+        whenReady(function () { enhanceNav(user); startIdleLogout(); });
+      } else {
+        root.classList.add("is-locked");
+        whenReady(function () {
+          if (global.IntentAuthForm) global.IntentAuthForm.refresh();
+        });
+      }
+      return user;
+    })();
+    return gatePromise;
+  }
+
   /* On the login page: if already signed in, skip straight to the site. */
   async function redirectIfAuthed(dest) {
     try {
-      if (await isLoggedIn()) window.location.replace(dest || "index.html");
+      if (await isLoggedIn()) window.location.replace(dest || "ai.html");
     } catch (e) { /* stay on the login page */ }
   }
 
@@ -353,6 +377,8 @@
     logout: logout,
     isLoggedIn: isLoggedIn,
     requireAuth: requireAuth,
+    gate: gate,
+    whenGated: gate,
     redirectIfAuthed: redirectIfAuthed,
     getProfile: getProfile,
     updateProfile: updateProfile,

@@ -2388,3 +2388,9 @@ nav a.active:not(.btn)::after {
   .section-header h2 .accent { animation: none; }
   .bio-log { scroll-behavior: auto; }
 }
+
+/* ---------- AI page soft gate ---------- */
+/* Nothing in the gated area (or the sign-in card) shows until IntentAuth.gate()
+   has decided which one applies, so there is no flash of either. */
+html:not(.is-authed) .gated { display: none; }
+html:not(.is-locked) .auth-gate { display: none; }

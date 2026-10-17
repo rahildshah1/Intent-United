@@ -231,7 +231,7 @@
 
         try {
           await IntentAuth.deleteAccount();
-          window.location.replace("login.html?deleted=1");
+          window.location.replace("ai.html?deleted=1");
         } catch (err) {
           showError(err && err.message
             ? err.message
