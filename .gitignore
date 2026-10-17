@@ -70,9 +70,9 @@ web_modules/
 .env.*
 !.env.example
 
-# Browser-loaded Supabase config (holds the public anon key). Keep it out of
-# git per project preference; commit config.example.js as the template instead.
-config.js
+# config.js (public Supabase URL + anon key) is committed on purpose: the site is
+# also served by GitHub Pages, which has no other way to get it. The anon key is
+# RLS-protected and already ships to every browser.
 
 # parcel-bundler cache (https://parceljs.org/)
 .cache
