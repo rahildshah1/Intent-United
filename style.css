@@ -1711,21 +1711,6 @@ body.auth-page::before {
   pointer-events: none;
 }
 
-/* --- water ripple surface (canvas injected by main.js) ------------------ */
-/* A realistic height-field water simulation that sits behind all content
-   and reacts to the moving pointer. Painted as soft specular highlights so
-   it reads as light rippling across the warm background gradient. */
-.ripple-canvas {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  z-index: -1;              /* above the body gradient, behind all content */
-  pointer-events: none;
-  /* upscaled from a small buffer — let the browser smooth it into water */
-  image-rendering: auto;
-}
-
 /* --- richer page heroes (fixes the "blank / bland at the top" feel) --- */
 .page-hero {
   position: relative;
